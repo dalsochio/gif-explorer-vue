@@ -9,36 +9,62 @@
 		</div>
 		<div class="flex flex-col gap-4">
 			<p class="text-2xl font-extrabold">Em alta</p>
-			<div class="columns-2 md:columns-3 lg:columns-4">
-				<div v-for="(gif, i) in gifs.trending" :key="i"
-					class="mb-4 rounded-md border dark:border-zinc-600 overflow-hidden cursor-pointer">
-					<img :src="gif.images.original.url" class="hover:scale-105 ease-in duration-200" />
+
+			<q-infinite-scroll @load="fetchTrendingsGifs" :offset="250">
+				<div class="w-full min-h-80vh columns-2 md:columns-3 lg:columns-4">
+					<template v-for="(gif, i) in trending" :key="i">
+						<ImageCard :id="gif.id" :image="gif.images.original.url" />
+					</template>
 				</div>
-			</div>
+				<template v-slot:loading>
+					<div class="row justify-center q-my-md">
+						<q-spinner-dots color="primary" size="40px" />
+					</div>
+				</template>
+			</q-infinite-scroll>
 		</div>
 	</main>
 </template>
 
 <script setup>
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 import { api } from "boot/axios";
-import SideBarLayout from "layouts/SideBarLayout.vue";
+import ImageCard from "components/ImageCard.vue";
 
-const gifs = ref({
-	trending: [],
-});
+const trending = ref([])
 
-async function fetchTrendingsGifs() {
-	try {
-		const response = await api.get("/trending");
-		gifs.value.trending = response.data.data;
-	} catch (error) {
-		alert(error);
-		console.log(error);
+let limit = 25;
+let page = 0
+
+function reorder(arr, columns) {
+	const cols = columns;
+	const out = [];
+	let col = 0;
+	while (col < cols) {
+		for (let i = 0; i < arr.length; i += cols) {
+			let _val = arr[i + col];
+			if (_val !== undefined)
+				out.push(_val);
+		}
+		col++;
 	}
+	return out;
 }
 
-onMounted(async () => {
-	fetchTrendingsGifs();
-});
+function fetchTrendingsGifs(index, done) {
+	api.get("/trending", {
+		params: {
+			limit: 25,
+			offset: page,
+			rating: "g",
+			bundle: "messaging_non_clips"
+		},
+	}).then((response => {
+		trending.value.push(...reorder(response.data.data, 4));
+		page += limit
+		done()
+	})).catch(error => {
+		console.error(error)
+	});
+}
 </script>
